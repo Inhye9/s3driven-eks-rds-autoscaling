@@ -53,24 +53,23 @@ This solution automates **proactive infrastructure scaling** based on scheduled 
 
 Upload a `.csv` file to the configured S3 bucket
 
-## 2. Lambda Triggered
+### 2. Lambda Triggered
 
 When the `.csv` file is uploaded to S3, a Lambda function is automatically triggered.
 
 The Lambda function performs the following actions:
 
-### For EKS entries:
+#### For EKS entries:
 - Connects to the EC2 instance (workbench or jumpbox) via SSH or SSM
 - Adds a `crontab` entry that schedules the execution of 
   `eks_autoscale.sh` at the specified time
 
-### For RDS entries:
+#### For RDS entries:
 - Creates an **EventBridge Scheduler** rule
 - The rule is configured to invoke the `managing-aurora-reader-lmb.py` Lambda function at the defined time
 
----
 
-## 3. EKS Pod Scaling (via EC2 crontab)
+### 3. EKS Pod Scaling (via EC2 crontab)
 
 At the scheduled time, the `pod_autoscale.sh`script is executed on the EC2 instance:
 
