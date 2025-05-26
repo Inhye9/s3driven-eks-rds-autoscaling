@@ -16,9 +16,10 @@ ec2_client = boto3.client('ec2')
 ssm_client = boto3.client('ssm')
 s3 = boto3.client('s3')
 
+accountid = ''
 lambda_name = 'autoscale_handler.py'
 instance_id = '' # kubectl ec2 id 
-scheduler_prefix = 'autorun'
+scheduler_prefix = 'autoscale'
 osuser = 'appuser'  # kubectl ec2 app os id
 
 # 현재 일자 
@@ -55,9 +56,9 @@ def lambda_handler(event, context):
         logging.warning("[INFO] key: " + key)
 
         # csv 파일명이 맞으면 수행
-        if not 'autorun' in key :
-          # raise("[Error] The file is not right. Upload autorun-sms.csv on s3://pri-autorun-sms-s3/update_schedule/")
-          print("[Error] The file is not right. Upload autorun-sms.csv on s3://pri-autorun-sms-s3/update_schedule/")
+        if not 'autoscale' in key :
+          # raise("[Error] The file is not right. Upload autoscale-sms.csv on s3://pri-autoscale-sms-s3/update_schedule/")
+          print("[Error] The file is not right. Upload autoscale-sms.csv on s3://pri-autoscale-sms-s3/update_schedule/")
           return 
             
         # Body를 line으로 split 함.
@@ -182,11 +183,12 @@ def parse_csv(res_list):
 
 
 ## convert_to_crontab_format: parsed_data를 crontab 형식으로 변경하는 함수
+## ex) 00 16 01 03 * appuser /apps/autoscale/bin/cron_autoscale.sh max >> /apps/autoscale/logs/cron_autoscale.log 2>&1 #autoreg
 def convert_to_crontab_format(parsed_data): 
     #cronjobs = []
     cronjob = ""
-    homepath = "/apps/operating-itn"
-    logpath = homepath + "/logs/cron_autorun.log 2>&1"
+    homepath = "/apps/autoscale"
+    logpath = homepath + "/logs/cron_autoscale.log 2>&1"
     
     for event in parsed_data:
         start_time = datetime(event['start_year'], event['start_month'], event['start_day'], event['start_hour'], event['start_minute'])
@@ -207,30 +209,30 @@ def convert_to_crontab_format(parsed_data):
         start_weekday = start_time.weekday()
         if start_weekday == 2: 
             if p > 50:
-                cronjob += (start_time - timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh max >> " + logpath + " #autoreg" + "\n"
-                cronjob += (end_time + timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh half >> " + logpath + " #autoreg" + "\n"
-            else: 
+                cronjob += (start_time - timedelta(minutes=15)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh max >> " + logpath + " #autoreg" + "\n"
+                cronjob += (end_time).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh half >> " + logpath + " #autoreg" + "\n"     
+            else:
                 continue
         # 더블마일리지 행사의 경우(3/13, 14, 15, 16):
         elif d_year == 2025 and d_month == 3 and d_day in {13, 14, 15, 16}:
                 if p > 50:
-                    cronjob += (start_time - timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh max >> " + logpath + " #autoreg" + "\n"
-                    cronjob += (end_time + timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh half >> " + logpath + " #autoreg" + "\n"
+                    cronjob += (start_time - timedelta(minutes=15)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh max >> " + logpath + " #autoreg" + "\n"
+                    cronjob += (end_time).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh half >> " + logpath + " #autoreg" + "\n"
                 else: 
                     continue
         # 다른 요일의 경우(수 제외)
         else: 
             if p > 50:
-                cronjob += (start_time - timedelta(minutes=40)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh half >> " + logpath + " #autoreg" +"" "\n"
-                cronjob += (start_time - timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh max >> " + logpath + " #autoreg" + "\n"
-                cronjob += (end_time + timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh half >> " + logpath + " #autoreg" + "\n"
-                cronjob += (end_time + timedelta(minutes=40)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh min >> " + logpath + " #autoreg" + "\n"
+                cronjob += (start_time - timedelta(minutes=25)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh half >> " + logpath + " #autoreg" +"" "\n"
+                cronjob += (start_time - timedelta(minutes=15)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh max >> " + logpath + " #autoreg" + "\n"
+                cronjob += (end_time).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh half >> " + logpath + " #autoreg" + "\n"
+                cronjob += (end_time + timedelta(minutes=10)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh min >> " + logpath + " #autoreg" + "\n"
             elif 25 < p <= 50 :
-                cronjob += (start_time - timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh half >> " + logpath + " #autoreg" + "\n"
-                cronjob += (end_time + timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh min >> " + logpath + " #autoreg" + "\n"
+                cronjob += (start_time - timedelta(minutes=15)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh half >> " + logpath + " #autoreg" + "\n"
+                cronjob += (end_time).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh min >> " + logpath + " #autoreg" + "\n"
             else :
-                cronjob += (start_time - timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh quarter >> " + logpath + " #autoreg" + "\n"
-                cronjob += (end_time + timedelta(minutes=30)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autorun.sh min >> " + logpath + " #autoreg" + "\n"
+                cronjob += (start_time - timedelta(minutes=15)).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh quarter >> " + logpath + " #autoreg" + "\n"
+                cronjob += (end_time).strftime('%M %H %d %m *')+ osuser + homepath +"/bin/cron_autoscale.sh min >> " + logpath + " #autoreg" + "\n"
         
     
     # done 로그 
@@ -256,7 +258,7 @@ def upload_crontab_on_ec2(cronjob):
     # ssm을 사용해서 ec2의 instance에 명령 전송 
     # init_crontab.sh: csv 등록일자 기준 이전 cron을 삭제하는 shell
     #exec_shell_path = "/root/workspace/chart/bin"
-    exec_shell_path = "/apps/operating-itn/bin"
+    exec_shell_path = "/apps/autoscale/bin"
     response = ssm_client.send_command(
         InstanceIds=[instance_id],
         DocumentName="AWS-RunShellScript",
@@ -266,7 +268,7 @@ def upload_crontab_on_ec2(cronjob):
                 #f"echo '{cronjob}' | sudo tee -a /etc/crontab"
                 #f"sudo /root/workspace/chart/bin/init_crontab.sh && echo '{cronjob}' | sudo tee -a /etc/crontab"
                 #f"sudo '{exec_shell_path}'/init_crontab.sh && echo '{cronjob}' | sudo tee -a /etc/crontab"
-                f"sudo /apps/operating-itn/bin/init_crontab.sh  && echo -n '{cronjob}' | sudo tee -a /etc/crontab" 
+                f"sudo /apps/autoscale/bin/init_crontab.sh  && echo -n '{cronjob}' | sudo tee -a /etc/crontab" 
             ]
         }
     )
@@ -323,11 +325,11 @@ def generate_eventbridge_scheduler(parsed_data):
         
         #Scheduler 시간 산출
         date = start_time.strftime('%Y%m%d-%H')
-        add_time_1 = (start_time - timedelta(minutes=60)).strftime('%Y-%m-%dT%H:%M:%S')
-        add_time_2 = (start_time - timedelta(minutes=50)).strftime('%Y-%m-%dT%H:%M:%S')
-        del_time_1 = (end_time + timedelta(minutes=50)).strftime('%Y-%m-%dT%H:%M:%S')
-        del_time_2 = (end_time + timedelta(minutes=60)).strftime('%Y-%m-%dT%H:%M:%S')
-        
+        add_time_1 = (start_time - timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%S')
+        add_time_2 = (start_time - timedelta(minutes=20)).strftime('%Y-%m-%dT%H:%M:%S')
+        del_time_1 = (end_time + timedelta(minutes=5)).strftime('%Y-%m-%dT%H:%M:%S')
+        del_time_2 = (end_time + timedelta(minutes=15)).strftime('%Y-%m-%dT%H:%M:%S')
+                
         
         # 변수 세팅 
         action=""
@@ -411,11 +413,10 @@ def generate_eventbridge_scheduler(parsed_data):
                           
                 # scheduler_target을 설정
                 scheduler_target = {
-                                # Lambda 설정: autorun-managing-rds-reader-lmb
-                                'Arn' : 'arn:aws:lambda:ap-northeast-2:206178055504:function:autorun-managing-rds-reader-lmb', 
-                                # Role 설정: autorun-managing-rds-reader-schedule-role
-                                #'RoleArn': 'arn:aws:iam::206178055504:role/autorun-managing-rds-reader-schedule-role',
-                                'RoleArn': 'arn:aws:iam::206178055504:role/service-role/autorun-managing-rds-reader-schedule-role',
+                                # Lambda 설정: autoscale-rds-handler.py
+                                'Arn' : 'arn:aws:lambda:ap-northeast-2:'+accountid+':function:autoscale-rds-handler-lmb', 
+                                # Role 설정: autoscale-rds-handler-role.json
+                                'RoleArn': 'arn:aws:iam::'+accountid+':role/service-role/autoscale-rds-handler-role',
                                 # Payload 설정
                                 'Input': json.dumps({
                                     "identifier" : scheduler_prefix +dbname+"-cluster", 
@@ -433,9 +434,9 @@ def generate_eventbridge_scheduler(parsed_data):
                 try: 
                 # evenbridge scheduler 를 생성한다.
                     response = scheduler.create_schedule(
-                        #Name = date +'-'+str(i) + '-autorun-order-read-'+ action , 
+                        #Name = date +'-'+str(i) + '-autoscale-order-read-'+ action , 
                         Name = schedule_name, 
-                        GroupName = 'autorun-managing-rds-reader-sg',
+                        GroupName = 'autoscale-rds-sg',
                         ScheduleExpression = 'at('+time+')',
                         ScheduleExpressionTimezone = 'Asia/Seoul', 
                         FlexibleTimeWindow = {"Mode":"OFF"},
@@ -460,10 +461,10 @@ def generate_eventbridge_scheduler(parsed_data):
 # delete_previous_eventbridge_scheduler: 이전 EventBridge Scheduler를 전체 삭제하는 함수
 def delete_previous_eventbridge_scheduler():
     
-    # 기존 scheduler 목록 조회(스케줄러명: autorun-order-read*)
+    # 기존 scheduler 목록 조회(스케줄러명: autoscale-order-read*)
     response = scheduler.list_schedules(
-        GroupName = 'autorun-managing-rds-reader-sg',
-        NamePrefix = 'autorun-'
+        GroupName = 'autoscale-rds-sg',
+        NamePrefix = 'autoscale-'
     )
     
     
@@ -478,8 +479,8 @@ def delete_previous_eventbridge_scheduler():
 
         # Eventbridge scheduler 전체 삭제
         response = scheduler.delete_schedule(
-            #GroupName = 'autorun-managing-rds-reader-sg',
-            GroupName = 'autorun-managing-rds-reader-sg',
+            #GroupName = 'autoscale-rds-sg',
+            GroupName = 'autoscale-rds-sg',
             Name = name
         )
         

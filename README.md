@@ -15,16 +15,25 @@ This solution automates **proactive infrastructure scaling** based on scheduled 
 ```
 .
 ├── src/
-│ ├── scale_handler.py # Lambda handler triggered by schedule
-│ ├── eks_scaler.py # Functions to scale EKS node groups
-│ ├── rds_scaler.py # Functions to modify RDS instances
-│ └── config.py # Configuration for scaling targets and policies
+│ ├── autoscale_handler.py # Lambda handler triggered by schedule
+│ ├── autoscale-rds-handler.py # Functions to scale EKS node groups
+│ ├── init_crontab.sh # Bash shell to remove previous #autoreg cron on crontab 
+│ └── cron_autoscale.sh # Bash shell executed by cron for managing hpa 
 ├── events/
 │ └── scheduled_event.json # Example EventBridge Scheduler event payload
 ├── docs/
 │ ├── architecture.png # Architecture diagram
-│ └── 
-├── requirements.txt # Python dependencies
+│ └── autoscale-schdule.csv # csv file to upload in s3 bucket 
+├── role/
+│ ├── lambda-role.json # iam role policy for autoscale-handler.py 
+│ └── lambda-rds-role.json # iam role policy for autoscale-rds-hanlder.py
+├── terraform/ 
+│ ├── test.tfvars # variables --var-file=test.tfvars
+│ ├── main.tf
+│ ├── tag.tf
+│ ├── output.tf
+│ ├── variables.tf
+│ └── README.md # Terraform documentation 
 └── README.md # Project documentation
 
 ```
@@ -43,7 +52,7 @@ This solution automates **proactive infrastructure scaling** based on scheduled 
 - **Workbench EC2 Instance** must:
   - Be reachable via SSH from Lambda
   - Have `kubectl` installed and configured for EKS access
-  - Have the `scale_eks_script.sh` deployed and executable
+  - Have the `cron_autoscale.sh` and `init_crontab.sh` deployed and executable
 
 
 
